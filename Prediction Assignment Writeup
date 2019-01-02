@@ -1,0 +1,85 @@
+---
+"Practical Machine Learning Project Write Up"
+"Ziren Lin"
+"njlinziren1997@163.com"
+---
+
+## 1) Assignment Objective
+
+One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, our goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants.
+
+## 2) Load Data
+
+First, we need to load the caret package as well as the data. The data came from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+Below, both the training and testing sets are loaded.
+
+```{r message=FALSE, warning=FALSE}
+library(caret)
+# Load Training and test data
+training <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"), na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"), na.strings=c("NA","#DIV/0!",""))
+```
+
+## 2) Data Cleaning and Transformation
+
+To further prepare the data for modeling, we first remove all columns with mising values. After which we remove the first seven columns as they are related to unique user information and time.
+
+```{r message=FALSE, warning=FALSE}
+NonNAColumns <- colnames(training)[colSums(is.na(training)) == 0]
+training <- training[NonNAColumns]
+training <- training[,-c(1:7)]
+```
+
+
+## 3) Data Partitioning
+
+Next, the data needs to be partitioned. Using the training set, we will create a new training and testing set (60-40 split). This is done so that we can test our model before we apply it to the main testing data.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(3)
+inTrain <- createDataPartition(y=training$classe, p=0.6,list=F)
+training2 <- training[inTrain,] 
+testing2 <- training[-inTrain,]
+```
+
+## 3) Model Building
+
+We are now ready to start building our model. We'll use a random forest algorithm to make our predictions. First, we need to tune our parameters for the model. We will use 5 fold cross validation repeated 5 times. 
+
+```{r message=FALSE, warning=FALSE}
+set.seed(3)
+fitControl <- trainControl(
+        method = "cv",
+        number = 5,
+        repeats = 5,
+        allowParallel = T, 
+        verbose = F)
+```
+
+Below we actually build the model with the parameters set in the code above. We'll also use principal component analysis to aggregate some of the predictors that have a similar impact on the target variable.
+
+```{r message=FALSE, warning=FALSE}
+set.seed(3)
+rfMod <- train(classe ~ ., 
+                 data = training2,
+                 method = "rf",
+                 trControl = fitControl,
+                 preProcess = "pca")
+```
+
+## 4) Model Evaluation and Conclusion
+
+We will now apply the model on the new testing set and evaluate the results. The model has an accuracy of 97.06% making the out of sample error +/- 2.94%.
+
+```{r message=FALSE, warning=FALSE}
+predrfMod<-predict(rfMod, newdata=testing2)
+confusionMatrix(predrfMod, testing2$classe)
+```
+
+Finally, we'll apply our model to the original testing set and return the results.
+
+```{r message=FALSE, warning=FALSE}
+predrfMod2 <-predict(rfMod, newdata=testing)
+print(predrfMod2)
+```
